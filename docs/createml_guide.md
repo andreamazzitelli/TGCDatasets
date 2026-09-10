@@ -111,3 +111,47 @@ metrics → source more data for the weak classes → retrain. Given the class
 list here is deliberately extensible (`other_tcg`, `other_graded`), you can
 start with fewer images per class, ship a v1, and keep improving specific
 classes over time without restructuring the dataset.
+
+## 6. Adding a new TCG later
+
+Short answer: **not from scratch in the deep-learning sense, but yes, a
+full retrain.**
+
+Create ML's Image Classifier is transfer learning on top of a pretrained,
+frozen feature extractor (a general-purpose vision model Apple ships with
+Create ML) — it isn't training a CNN's convolutional layers from zero each
+time. Only a small classifier head sits on top and gets (re)trained, which
+is why training even a few thousand images typically takes minutes, not
+hours, especially on Apple Silicon.
+
+What Create ML does **not** support is bolting one new class onto an
+already-trained, already-exported model. There's no "just teach it
+`digimon` without touching what it already knows" option. The actual flow:
+
+1. Add `data/tcg_identifier/train/digimon/` (or whichever TCG) with images,
+   same as any other class — nothing about the existing classes' folders
+   needs to change, since this is single-label multi-class (see
+   `docs/taxonomy.md` for why that design choice matters here).
+2. Go back to the same Create ML project (or open a fresh one) and re-point
+   it at `data/tcg_identifier/train` — Create ML rescans the folder you
+   hand it, so the new subfolder is picked up automatically.
+3. Click Train. This retrains the classifier head across **every** class,
+   old and new, in one pass — again, fast, because of the frozen feature
+   extractor, not because it's skipping any classes.
+4. Re-check per-class metrics (step 3 above), paying particular attention
+   to any class the new one might get confused with (e.g. a new TCG that
+   shares a similar card frame/border style with an existing one).
+5. Export a new `.mlmodel` and swap it into your app — the old export
+   isn't updated in place, it's replaced.
+
+Practically: adding a TCG is cheap at the data level (one new folder) and
+cheap at the compute level (a few minutes to retrain), but it is a full
+retrain each time, not an incremental patch. Budget for re-validating the
+whole confusion matrix after, not just eyeballing the new class's own
+accuracy — that's the step most likely to surface a regression.
+
+(Core ML does have a separate "Updatable model" mechanism for on-device
+personalization — fine-tuning after the model already ships, from a
+handful of user-provided images. It's built for that scenario, not for
+"add a well-resourced new class during development," so the retrain flow
+above is the right tool here.)

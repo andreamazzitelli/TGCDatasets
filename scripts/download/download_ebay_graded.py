@@ -19,11 +19,22 @@ Note: this fills the grader-label classes (psa/bgs/cgc/sgc/other_graded).
 The `raw` class is better filled with your own photos of ungraded cards —
 see docs/data_collection.md — since real held-card photos look different
 from a clean listing photo of a raw card.
+
+Listing photos are messier than API card scans: multi-card lots, seller
+watermarks, playmats/binders in frame, tiny thumbnails on old listings. This
+script filters listing titles that are obviously not a single graded card
+and drops images below a minimum resolution, but it can't catch everything
+— do a quick manual pass (Finder Gallery view + Quick Look) over each
+downloaded folder before training. See docs/data_collection.md for the full
+"eBay background/quality" guidance, including why background variety itself
+is *not* the problem to fix (it's spurious correlation across classes that
+is).
 """
 from __future__ import annotations
 
 import argparse
 import base64
+import io
 import os
 import random
 import sys
@@ -43,6 +54,21 @@ GRADER_QUERIES = {
     "sgc": "SGC graded card",
     "other_graded": "TAG Arena Club graded card",
 }
+
+# Title substrings that usually mean "not a single clean graded-card photo"
+# — multi-item lots, empty holders, non-card merch, reproductions.
+TITLE_EXCLUDE = [
+    "lot of", "lot ", "bundle", "job lot", "wholesale", "huge lot",
+    "empty case", "empty slab", "no card", "case only", "display case",
+    "playmat", "binder", "box only", "reprint", "proxy", "custom art", "fake",
+]
+
+MIN_SHORT_SIDE = 300  # px — below this a listing photo is little more than a thumbnail
+
+
+def title_is_clean(title: str) -> bool:
+    lowered = title.lower()
+    return not any(bad in lowered for bad in TITLE_EXCLUDE)
 
 
 def get_access_token(session, client_id: str, client_secret: str) -> str:
@@ -102,9 +128,17 @@ def main() -> None:
         items.extend(batch)
         offset += page_size
 
-    print(f"Got {len(items)} listings for '{query}'.")
+    before = len(items)
+    items = [i for i in items if title_is_clean(i.get("title", ""))]
+    print(f"Got {before} listings for '{query}', {len(items)} after title filtering.")
     random.seed(args.seed)
     random.shuffle(items)
+
+    try:
+        from PIL import Image
+    except ImportError:
+        Image = None
+        print("  (Pillow not installed — skipping the minimum-resolution check; `pip install Pillow` to enable it)")
 
     saved = 0
     for item in items:
@@ -117,6 +151,15 @@ def main() -> None:
         item_id = str(item.get("itemId", saved)).replace("|", "_")
         dest = out_dir / f"{item_id}{suffix_from_url(url)}"
         if download_image(session, url, dest):
+            if Image is not None:
+                try:
+                    with Image.open(dest) as im:
+                        if min(im.size) < MIN_SHORT_SIDE:
+                            dest.unlink()
+                            continue
+                except Exception:
+                    dest.unlink(missing_ok=True)
+                    continue
             append_manifest(
                 filename=dest.name,
                 model="grading_status",

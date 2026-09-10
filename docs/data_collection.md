@@ -97,6 +97,44 @@ In order of preference:
      companies, varied angle/lighting, goes a long way, since the model is
      learning slab/label design, not the specific card inside.
 
+## Cleaning up eBay listing photos
+
+Listing photos are real-world photos, not clean scans, so they carry more
+noise than the TCG API sources: desks, hands, other cards in frame, seller
+watermarks, playmats, low-res thumbnails on old listings.
+
+**Background variety itself is not the problem** — the shot guidelines
+above already say to *want* varied backgrounds so the model doesn't key on
+"that one white mat." The actual risk is a **background that correlates
+with the label instead of the card**: if every `psa` photo happens to sit on
+a clean desk (typical eBay staging) while every `raw` photo is on your own
+kitchen table, the model can learn "kitchen table = raw" instead of
+"no slab = raw," and will misfire the moment you photograph a raw card on a
+desk. The fix is balance, not blank backgrounds: make sure each grading
+class sees roughly the same *mix* of settings the others do, not a
+uniquely clean or uniquely messy one.
+
+Two things are still worth removing outright, and `download_ebay_graded.py`
+now does the cheap part automatically:
+
+- **Title filtering** — the script skips listings whose title suggests a
+  multi-card lot, an empty holder, or non-card merch (`lot of`, `bundle`,
+  `playmat`, `reprint`, `proxy`, etc. — see `TITLE_EXCLUDE` in the script).
+- **Minimum resolution** — downloaded images below 300px on the short side
+  are dropped (some old listings only have thumbnail-sized photos). Needs
+  `Pillow` (in `requirements.txt`); the script just skips this check with a
+  warning if Pillow isn't installed.
+
+What the script *can't* catch, so do a quick manual pass before training:
+heavy seller watermarks across the image, a listing photo that's actually a
+stock graphic instead of the real slab, or a lot photo whose title didn't
+match the filter. On macOS this is fastest natively — open the class folder
+in Finder, switch to Gallery view (⌘4), and flick through with the arrow
+keys, hitting Space for Quick Look and Delete to drop anything bad. For a
+few hundred images this takes a couple of minutes; no extra tooling needed.
+Don't over-cull, though — a slightly messy real photo is exactly the kind
+of variety the model needs to generalize to a phone camera later.
+
 ## Tracking provenance: `data/manifest.csv`
 
 `scripts/scaffold_dataset.sh` creates `data/manifest.csv` with this header:
