@@ -9,3 +9,4 @@ data/grading_status/
 !data/manifest.csv
 
 .DS_Store
+__pycache__/
