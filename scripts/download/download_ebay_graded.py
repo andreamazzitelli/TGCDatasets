@@ -33,19 +33,29 @@ is).
 from __future__ import annotations
 
 import argparse
-import base64
-import io
 import os
 import random
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT, append_manifest, download_image, make_session, suffix_from_url
+from _ebay import (
+    auth_session,
+    get_access_token,
+    missing_creds_message,
+    passes_resolution,
+    search_listings,
+    title_is_clean,
+)
+from common import (
+    REPO_ROOT,
+    append_manifest,
+    download_image,
+    make_session,
+    suffix_from_url,
+)
 
 OUT_ROOT = REPO_ROOT / "data" / "grading_status" / "train"
-TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
-SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
 
 GRADER_QUERIES = {
     "psa": "PSA graded card",
@@ -54,36 +64,6 @@ GRADER_QUERIES = {
     "sgc": "SGC graded card",
     "other_graded": "TAG Arena Club graded card",
 }
-
-# Title substrings that usually mean "not a single clean graded-card photo"
-# — multi-item lots, empty holders, non-card merch, reproductions.
-TITLE_EXCLUDE = [
-    "lot of", "lot ", "bundle", "job lot", "wholesale", "huge lot",
-    "empty case", "empty slab", "no card", "case only", "display case",
-    "playmat", "binder", "box only", "reprint", "proxy", "custom art", "fake",
-]
-
-MIN_SHORT_SIDE = 300  # px — below this a listing photo is little more than a thumbnail
-
-
-def title_is_clean(title: str) -> bool:
-    lowered = title.lower()
-    return not any(bad in lowered for bad in TITLE_EXCLUDE)
-
-
-def get_access_token(session, client_id: str, client_secret: str) -> str:
-    basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
-    resp = session.post(
-        TOKEN_URL,
-        headers={
-            "Authorization": f"Basic {basic}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        data={"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()["access_token"]
 
 
 def main() -> None:
@@ -98,47 +78,22 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.client_id or not args.client_secret:
-        sys.exit(
-            "Missing eBay API credentials. Register a free app at "
-            "https://developer.ebay.com/my/keys and pass --client-id/--client-secret "
-            "or set EBAY_CLIENT_ID/EBAY_CLIENT_SECRET."
-        )
+        sys.exit(missing_creds_message())
 
     session = make_session()
     print("Requesting eBay OAuth token ...")
     token = get_access_token(session, args.client_id, args.client_secret)
-    session.headers["Authorization"] = f"Bearer {token}"
-    session.headers["X-EBAY-C-MARKETPLACE-ID"] = args.marketplace
+    auth_session(session, token, args.marketplace)
 
     out_dir = OUT_ROOT / args.grader
     query = args.query or GRADER_QUERIES[args.grader]
 
-    items: list[dict] = []
-    offset = 0
-    page_size = 50
-    while len(items) < args.limit * 2 and offset < 1000:
-        print(f"Searching '{query}' offset={offset} ...")
-        resp = session.get(SEARCH_URL, params={"q": query, "limit": page_size, "offset": offset}, timeout=30)
-        if resp.status_code != 200:
-            print(f"  ! search failed: HTTP {resp.status_code} {resp.text[:300]}", file=sys.stderr)
-            break
-        batch = resp.json().get("itemSummaries", [])
-        if not batch:
-            break
-        items.extend(batch)
-        offset += page_size
-
+    items = search_listings(session, query, want=args.limit * 2)
     before = len(items)
     items = [i for i in items if title_is_clean(i.get("title", ""))]
     print(f"Got {before} listings for '{query}', {len(items)} after title filtering.")
     random.seed(args.seed)
     random.shuffle(items)
-
-    try:
-        from PIL import Image
-    except ImportError:
-        Image = None
-        print("  (Pillow not installed — skipping the minimum-resolution check; `pip install Pillow` to enable it)")
 
     saved = 0
     for item in items:
@@ -151,15 +106,9 @@ def main() -> None:
         item_id = str(item.get("itemId", saved)).replace("|", "_")
         dest = out_dir / f"{item_id}{suffix_from_url(url)}"
         if download_image(session, url, dest):
-            if Image is not None:
-                try:
-                    with Image.open(dest) as im:
-                        if min(im.size) < MIN_SHORT_SIDE:
-                            dest.unlink()
-                            continue
-                except Exception:
-                    dest.unlink(missing_ok=True)
-                    continue
+            if not passes_resolution(dest):
+                dest.unlink(missing_ok=True)
+                continue
             append_manifest(
                 filename=dest.name,
                 model="grading_status",

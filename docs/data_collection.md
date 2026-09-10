@@ -52,7 +52,9 @@ In order of preference:
 2. **Public card databases/APIs**, for classes you can't source enough real
    photos for. These typically provide clean, front-facing scans — good for
    bootstrapping a class but low in the "real photo" variety described
-   above, so don't rely on them exclusively. Per TCG:
+   above, so don't rely on them exclusively. `scripts/download/download_ebay_raw.py`
+   pulls real seller photos of raw cards per game from the eBay Browse API to
+   fill that gap — mix them in with the scans. Per TCG:
 
    | TCG | Source | Notes |
    |---|---|---|
@@ -140,8 +142,11 @@ of variety the model needs to generalize to a phone camera later.
 `scripts/scaffold_dataset.sh` creates `data/manifest.csv` with this header:
 
 ```
-filename,model,label,tcg,source,license_note,date_added,notes
+filename,model,split,label,tcg,source,license_note,date_added,notes
 ```
+
+(`split` is `train` or `test`, matching which folder the file lives in;
+`scripts/split_test_set.py` maintains it.)
 
 Log every non-self-photographed image here (one row per file) so you can
 answer "where did this come from and am I allowed to use it" later, and so

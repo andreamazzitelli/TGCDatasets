@@ -10,3 +10,6 @@ data/grading_status/
 
 .DS_Store
 __pycache__/
+
+# Local virtualenv for the download scripts
+.venv/

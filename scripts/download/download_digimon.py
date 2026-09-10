@@ -75,12 +75,16 @@ def main() -> None:
     for card in cards:
         if saved >= args.limit:
             break
+        name = first_present(card, "name", "card_name") or "card"
+        card_id = first_present(card, "card_id", "id", "cardnumber") or str(saved)
         url = first_present(card, "image_url", "cardimage", "img", "image")
+        if not url and first_present(card, "id"):
+            # digimoncard.io serves card art at a predictable path keyed by the
+            # card id (e.g. BT1-010); the search response itself carries no URL.
+            url = f"https://images.digimoncard.io/images/cards/{first_present(card, 'id')}.jpg"
         if not url:
             warn_once_unknown_shape("digimoncard.io card", card)
             continue
-        name = first_present(card, "name", "card_name") or "card"
-        card_id = first_present(card, "card_id", "id", "cardnumber") or str(saved)
         dest = OUT_DIR / f"{card_id}{suffix_from_url(str(url))}"
         if download_image(session, url, dest):
             append_manifest(

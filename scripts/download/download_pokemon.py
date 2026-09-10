@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import REPO_ROOT, append_manifest, download_image, make_session, suffix_from_url
+from common import REPO_ROOT, append_manifest, download_image, make_session, sleep_polite, suffix_from_url
 
 LABEL = "pokemon"
 OUT_DIR = REPO_ROOT / "data" / "tcg_identifier" / "train" / LABEL
@@ -46,12 +46,25 @@ def main() -> None:
     pages_needed = max(1, (args.limit * 3) // PAGE_SIZE + 1)
     while page <= pages_needed:
         print(f"Fetching page {page} ...")
-        resp = session.get(API_URL, params={"page": page, "pageSize": PAGE_SIZE}, timeout=30).json()
-        batch = resp.get("data", [])
+        batch: list[dict] = []
+        # The keyless rate limit is easy to trip; retry a page a few times
+        # with backoff before giving up (the API returns an HTML error body
+        # on a 429, which shows up here as a JSON decode error).
+        for attempt in range(5):
+            try:
+                r = session.get(API_URL, params={"page": page, "pageSize": PAGE_SIZE}, timeout=30)
+                r.raise_for_status()
+                batch = r.json().get("data", [])
+                break
+            except Exception as exc:
+                wait = 5 * (attempt + 1)
+                print(f"  ! page {page} attempt {attempt + 1} failed ({exc}); retrying in {wait}s", file=sys.stderr)
+                sleep_polite(wait)
         if not batch:
             break
         cards.extend(batch)
         page += 1
+        sleep_polite(1.0)
 
     print(f"Got {len(cards)} cards to sample from.")
     random.seed(args.seed)

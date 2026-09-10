@@ -31,13 +31,22 @@ guidelines, and `docs/createml_guide.md` for the actual Create ML workflow
 # (see scripts/download/README.md for the full list and caveats)
 cd scripts/download
 pip install -r requirements.txt
-python3 download_magic.py --limit 5   # smoke-test first
-python3 download_magic.py --limit 300
+python3 download_magic.py --limit 5     # smoke-test first
+python3 download_magic.py --limit 360   # ...then each download_*.py
+cd ../..
 
-# Everything else: drop images into data/tcg_identifier/train/<label>/ and
-# data/grading_status/train/<label>/ by hand, then track provenance in
-# data/manifest.csv (see docs/data_collection.md)
+# Balance the classes and carve out a reproducible test set
+python3 scripts/split_test_set.py --cap 360 --test-per-class 60
+
+# Still manual: raw, and all of grading_status/ (graded slabs need eBay API
+# credentials). Drop images into data/<model>/train/<label>/ by hand and
+# track provenance in data/manifest.csv (see docs/data_collection.md), then
+# re-run the split.
 ```
+
+As of the last run, every TCG-identifier class is scripted and holds 300
+training + 60 test images. See `scripts/download/README.md` for per-source
+status.
 
 Open Create ML on macOS, choose the **Image Classification** template, and
 point it at `data/tcg_identifier/train` (and separately at

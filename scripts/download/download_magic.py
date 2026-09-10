@@ -10,6 +10,8 @@ cards rather than paging through /cards one at a time.
 from __future__ import annotations
 
 import argparse
+import gzip
+import json
 import random
 import sys
 from pathlib import Path
@@ -32,12 +34,19 @@ def main() -> None:
 
     print(f"Fetching bulk data index from {BULK_INDEX_URL} ...")
     index = session.get(BULK_INDEX_URL, timeout=30).json()
-    download_uri = index.get("download_uri")
+    download_uri = index.get("download_uri") or index.get("jsonl_download_uri")
     if not download_uri:
         sys.exit(f"Unexpected response from Scryfall, no download_uri field: {index}")
 
     print(f"Downloading card list from {download_uri} (large file, may take a minute) ...")
-    cards = session.get(download_uri, timeout=180).json()
+    raw = session.get(download_uri, timeout=180).content
+    if download_uri.endswith(".gz"):
+        raw = gzip.decompress(raw)
+    text = raw.decode("utf-8")
+    if download_uri.endswith(".jsonl") or download_uri.endswith(".jsonl.gz"):
+        cards = [json.loads(line) for line in text.splitlines() if line.strip()]
+    else:
+        cards = json.loads(text)
     print(f"Got {len(cards)} card entries.")
 
     random.seed(args.seed)

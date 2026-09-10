@@ -17,7 +17,7 @@ import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "data" / "manifest.csv"
-MANIFEST_HEADER = ["filename", "model", "label", "tcg", "source", "license_note", "date_added", "notes"]
+MANIFEST_HEADER = ["filename", "model", "split", "label", "tcg", "source", "license_note", "date_added", "notes"]
 
 DEFAULT_HEADERS = {"User-Agent": "TGCDatasets-collector/1.0 (personal Create ML dataset build)"}
 
@@ -36,13 +36,13 @@ def ensure_manifest() -> None:
     MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not MANIFEST_PATH.exists():
         with MANIFEST_PATH.open("w", newline="") as f:
-            csv.writer(f).writerow(MANIFEST_HEADER)
+            csv.writer(f, lineterminator="\n").writerow(MANIFEST_HEADER)
 
 
-def append_manifest(*, filename: str, model: str, label: str, tcg: str, source: str, license_note: str, notes: str = "") -> None:
+def append_manifest(*, filename: str, model: str, label: str, tcg: str, source: str, license_note: str, notes: str = "", split: str = "train") -> None:
     ensure_manifest()
     with MANIFEST_PATH.open("a", newline="") as f:
-        csv.writer(f).writerow([filename, model, label, tcg, source, license_note, date.today().isoformat(), notes])
+        csv.writer(f, lineterminator="\n").writerow([filename, model, split, label, tcg, source, license_note, date.today().isoformat(), notes])
 
 
 def suffix_from_url(url: str, default: str = ".jpg") -> str:

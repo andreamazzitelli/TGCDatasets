@@ -42,7 +42,7 @@ done
 
 MANIFEST="data/manifest.csv"
 if [[ ! -f "$MANIFEST" ]]; then
-  echo "filename,model,label,tcg,source,license_note,date_added,notes" > "$MANIFEST"
+  echo "filename,model,split,label,tcg,source,license_note,date_added,notes" > "$MANIFEST"
   echo "Created $MANIFEST"
 fi
 
