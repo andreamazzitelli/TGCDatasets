@@ -52,24 +52,50 @@ In order of preference:
 2. **Public card databases/APIs**, for classes you can't source enough real
    photos for. These typically provide clean, front-facing scans — good for
    bootstrapping a class but low in the "real photo" variety described
-   above, so don't rely on them exclusively:
-   - Pokémon: the Pokémon TCG API (pokemontcg.io)
-   - Magic: The Gathering: Scryfall's bulk data / image API
-   - Yu-Gi-Oh!: YGOPRODeck API
-   - Others: check each game's community API/database before scraping a
-     retailer site directly.
+   above, so don't rely on them exclusively. Per TCG:
+
+   | TCG | Source | Notes |
+   |---|---|---|
+   | Pokémon | [Pokémon TCG API](https://pokemontcg.io) | |
+   | Magic: The Gathering | [Scryfall API](https://scryfall.com/docs/api) | Bulk data + high-res images, best-documented of the set |
+   | Yu-Gi-Oh! | [YGOPRODeck API](https://ygoprodeck.com/api-guide/) | |
+   | Digimon | [digimoncard.io public API](https://digimoncard.io/api-documentation) | Includes images; rate-limited to 15 req/10s |
+   | Star Wars: Unlimited | [swu-db.com API](https://www.swu-db.com/api) | Card search (JSON/CSV) + image redirection |
+   | Flesh and Blood | [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards) | Open-source JSON/CSV with direct image URLs — easiest bulk source of this group |
+   | Disney Lorcana | [Lorcast API](https://lorcast.com/docs/api) or [lorcana-api.com](https://lorcana-api.com/) | Lorcast serves images off its own CDN, no stated rate limit |
+   | One Piece | [optcgapi.com](https://optcgapi.com/) | |
+   | Multi-game shortcut | [apitcg.com](https://www.apitcg.com/) | One API spanning One Piece, Pokémon, Digimon, Magic, Gundam, Dragon Ball Fusion, Union Arena — useful to fill several gaps with one integration; verify current terms yourself before relying on it |
+   | Dragon Ball Super (Fusion World) | [official card list](https://www.dbs-cardgame.com/fw/en/cardlist/) | No solid public API found as of this writing — likely more manual sourcing or your own photos |
+   | Weiss Schwarz | [WeissSchwarz-ENG-DB](https://github.com/CCondeluci/WeissSchwarz-ENG-DB) | Community dataset pointing at official `en.ws-tcg.com` images — weakest tooling of the group, same caveat as DBS |
 
    **Check the current terms of each source before use.** Most of these
    allow non-commercial/personal and research use of images via their API,
    but redistribution or commercial-product use often needs separate
    permission from the card publisher (Pokémon, Wizards of the Coast,
-   Konami, etc.) or the grading companies (for slab imagery). This repo
-   doesn't grant or verify that clearance — confirm it yourself against the
-   source's current terms, especially if the resulting model or app will be
-   distributed or sold.
-3. **Grading company sample/lookup pages** (PSA cert verification, Beckett
-   population report images, etc.) can supplement slab photos for the
-   Grading Status model, subject to the same terms-of-use caveat above.
+   Konami, Bandai, Bushiroad, etc.). This repo doesn't grant or verify that
+   clearance — confirm it yourself against the source's current terms,
+   especially if the resulting model or app will be distributed or sold.
+
+3. **Graded slab images (PSA/BGS/CGC/SGC).** None of the four grading
+   companies expose a bulk "browse all graded cards" API — this is the
+   weak link in sourcing compared to the raw-card side above:
+   - PSA's [public API](https://www.psacard.com/publicapi/documentation) only
+     looks up **one cert number at a time**, and only has images for cards
+     graded **after October 2021** — it's a validator for certs you already
+     have, not a bulk browsing source. Its ToS restricts scraping; don't
+     try to work around that at volume.
+   - BGS, CGC, and SGC don't have a known public bulk image API at all.
+   - **Most practical bulk source: the [eBay Browse API](https://developer.ebay.com/api-docs/buy/browse/overview.html)**
+     (official developer registration, not scraping). Search terms like
+     `"PSA 10"`, `"BGS 9.5"`, `"CGC 9"`, `"SGC 10"` across active listings —
+     sellers photograph their actual slabs, across every TCG, which is
+     exactly the variety this model needs. It only covers active listings
+     (sold/completed history needs eBay's restricted Marketplace Insights
+     API), but active listings alone are enough volume for training.
+   - **Your own or a local card shop's graded inventory**, if you have
+     access to any — even 50–100 photographed slabs across the four
+     companies, varied angle/lighting, goes a long way, since the model is
+     learning slab/label design, not the specific card inside.
 
 ## Tracking provenance: `data/manifest.csv`
 
