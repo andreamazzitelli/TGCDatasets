@@ -1,7 +1,9 @@
 # Dataset images and generated Create ML artifacts are not tracked here —
 # see README.md "Why images aren't committed here".
 data/tcg_identifier
+data/tcg_identifier_augmented
 data/grading_status
+data/index
 *.mlmodel
 *.mlmodelc/
 

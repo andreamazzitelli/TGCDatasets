@@ -25,6 +25,7 @@ from common import (
     first_present,
     make_session,
     sleep_polite,
+    split_id_prefix,
     suffix_from_url,
     warn_once_unknown_shape,
 )
@@ -92,6 +93,9 @@ def main() -> None:
             continue
         cid = first_present(card, "card_set_id", "card_image_id", "card_id") or str(saved)
         name = first_present(card, "card_name", "name") or "card"
+        # card_set_id is formatted "<set>-<number>" (e.g. "OP01-001"); the
+        # prefix before the hyphen is the set code.
+        set_code = split_id_prefix(str(cid))
         dest = OUT_DIR / f"{cid}{suffix_from_url(str(url))}"
         if download_image(session, str(url), dest):
             append_manifest(
@@ -102,6 +106,7 @@ def main() -> None:
                 source=f"optcgapi.com:{cid}",
                 license_note="optcgapi.com — verify optcgapi.com terms before redistribution",
                 notes=str(name),
+                set=set_code,
             )
             saved += 1
             if saved % 25 == 0:

@@ -65,6 +65,15 @@ def main() -> None:
             print(f"  ! {path} failed: {exc}", file=sys.stderr)
             continue
         if isinstance(data, list):
+            # Tag each card with its source set file (e.g. "DB/S25.json" ->
+            # "S25") before flattening into one list — the per-set JSON file
+            # this repo's set boundary is the cleanest available identifier,
+            # since the exact `code`/`cardcode` field format isn't verified
+            # against a live response (see module docstring).
+            set_code = Path(path).stem
+            for c in data:
+                if isinstance(c, dict):
+                    c["_set_code"] = set_code
             cards.extend(data)
         sleep_polite(0.2)
 
@@ -96,6 +105,7 @@ def main() -> None:
                 source=f"WeissSchwarz-ENG-DB:{code}",
                 license_note="Community dataset (CCondeluci/WeissSchwarz-ENG-DB) referencing en.ws-tcg.com — verify terms before redistribution",
                 notes=str(name),
+                set=str(card.get("_set_code", "")),
             )
             saved += 1
             if saved % 25 == 0:

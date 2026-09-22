@@ -76,6 +76,7 @@ def main() -> None:
                 source=f"scryfall:{card.get('id')}",
                 license_note="Scryfall API — verify scryfall.com/docs/api/images before redistribution",
                 notes=card.get("name", ""),
+                set=card.get("set", ""),
             )
             saved += 1
             if saved % 25 == 0:

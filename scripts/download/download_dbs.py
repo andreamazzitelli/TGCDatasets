@@ -31,6 +31,7 @@ from common import (
     download_image,
     make_session,
     sleep_polite,
+    split_id_prefix,
 )
 
 LABEL = "dragon_ball_super"
@@ -94,6 +95,9 @@ def main() -> None:
     for card_no, fname in items:
         if saved >= args.limit:
             break
+        # card_no is formatted "<set>-<number>" (e.g. "FS01-001"); the prefix
+        # before the hyphen is the set code.
+        set_code = split_id_prefix(card_no)
         dest = OUT_DIR / f"{card_no}.webp"
         if download_image(session, IMG_BASE + fname, dest):
             append_manifest(
@@ -104,6 +108,7 @@ def main() -> None:
                 source=f"dbs-cardgame.com:{card_no}",
                 license_note="dbs-cardgame.com official card list — verify site terms before redistribution",
                 notes=card_no,
+                set=set_code,
             )
             saved += 1
             if saved % 25 == 0:

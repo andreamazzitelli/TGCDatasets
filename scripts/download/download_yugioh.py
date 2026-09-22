@@ -45,6 +45,11 @@ def main() -> None:
         url = images[0].get("image_url")
         if not url:
             continue
+        # The card art is generic (not per-printing), but `card_sets` lists
+        # every set this card was printed in — take the first as a
+        # deterministic, real (if arbitrary-among-reprints) set identifier.
+        card_sets = card.get("card_sets") or []
+        set_code = card_sets[0].get("set_code", "") if card_sets else ""
         dest = OUT_DIR / f"{card['id']}{suffix_from_url(url)}"
         if download_image(session, url, dest):
             append_manifest(
@@ -55,6 +60,7 @@ def main() -> None:
                 source=f"ygoprodeck:{card.get('id')}",
                 license_note="YGOPRODeck API — verify ygoprodeck.com/api-guide terms before redistribution",
                 notes=card.get("name", ""),
+                set=set_code,
             )
             saved += 1
             if saved % 25 == 0:

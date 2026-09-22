@@ -32,7 +32,11 @@ DATA_ROOT = REPO_ROOT / "data"
 MANIFEST_PATH = DATA_ROOT / "manifest.csv"
 MODELS = ["tcg_identifier", "grading_status"]
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".avif", ".heic", ".tiff"}
-MANIFEST_HEADER = ["filename", "model", "split", "label", "tcg", "source", "license_note", "date_added", "notes"]
+# Kept in sync with scripts/download/common.py's MANIFEST_HEADER (the `set`
+# column was added there — see docs/tcg_detection_pipeline.md §2). This
+# script only rewrites `split`/prunes rows, so it must round-trip every
+# column, including `set`, unchanged.
+MANIFEST_HEADER = ["filename", "model", "split", "label", "tcg", "set", "source", "license_note", "date_added", "notes"]
 
 
 def images_in(folder: Path) -> list[Path]:
