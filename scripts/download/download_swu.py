@@ -109,6 +109,7 @@ def main() -> None:
                 source=f"swu-db.com:{set_code}_{number}",
                 license_note="swu-db.com community API — verify swu-db.com/api terms before redistribution",
                 notes=str(name),
+                set=str(set_code),
             )
             saved += 1
             if saved % 25 == 0:

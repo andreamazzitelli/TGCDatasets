@@ -27,6 +27,7 @@ from common import (
     first_present,
     make_session,
     sleep_polite,
+    split_id_prefix,
     suffix_from_url,
     warn_once_unknown_shape,
 )
@@ -85,6 +86,9 @@ def main() -> None:
         if not url:
             warn_once_unknown_shape("digimoncard.io card", card)
             continue
+        # digimoncard.io ids embed the set code as the prefix before the
+        # first hyphen (e.g. "BT1-010" -> set "BT1"; see module docstring).
+        set_code = split_id_prefix(str(card_id))
         dest = OUT_DIR / f"{card_id}{suffix_from_url(str(url))}"
         if download_image(session, url, dest):
             append_manifest(
@@ -95,6 +99,7 @@ def main() -> None:
                 source=f"digimoncard.io:{card_id}",
                 license_note="digimoncard.io public API — verify digimoncard.io/api-documentation terms before redistribution",
                 notes=str(name),
+                set=set_code,
             )
             saved += 1
             if saved % 25 == 0:

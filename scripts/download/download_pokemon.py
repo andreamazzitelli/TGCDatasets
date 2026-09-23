@@ -42,6 +42,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=300)
     parser.add_argument("--seed", type=int, default=42)
+    # Without a per-set cap, a handful of large sets (some have 200+ cards)
+    # can exhaust the whole --limit before the shuffled set loop ever
+    # reaches most other sets, leaving the manifest with only 1-2 distinct
+    # `set` values for the whole pokemon class — a real coverage gap for
+    # the by-set train/index/eval split (docs/tcg_detection_pipeline.md
+    # §2), not just a labeling one. 20 is a middle ground: small enough
+    # that --limit=300 default spreads across 15+ sets, large enough that
+    # each set still contributes a meaningfully sized sample.
+    parser.add_argument("--per-set-limit", type=int, default=20, help="max images taken from any single set before moving on (default: 20)")
     args = parser.parse_args()
 
     session = make_session()
@@ -66,11 +75,20 @@ def main() -> None:
             continue
         cards = [c for c in full.get("cards", []) if c.get("image")]
         random.shuffle(cards)
+        saved_this_set = 0
         for card in cards:
             if saved >= args.limit:
                 break
+            if saved_this_set >= args.per_set_limit:
+                break
             url = card["image"] + IMAGE_SUFFIX
             dest = OUT_DIR / f"{card['id']}.png"
+            # Count this card against the per-set cap whether or not it was
+            # a new download (an already-downloaded card still "used up"
+            # this set's allotment) — otherwise a set whose cards are
+            # mostly already on disk would loop through its whole card list
+            # every run without ever moving on to the next set.
+            saved_this_set += 1
             if download_image(session, url, dest):
                 append_manifest(
                     filename=dest.name,
@@ -80,6 +98,7 @@ def main() -> None:
                     source=f"tcgdex.net:{card.get('id')}",
                     license_note="TCGdex — verify tcgdex.dev terms before redistribution",
                     notes=card.get("name", ""),
+                    set=str(set_id),
                 )
                 saved += 1
                 if saved % 25 == 0:

@@ -111,6 +111,11 @@ def main() -> None:
             cid = str(card_id).replace("/", "_")
             dest = OUT_DIR / f"{game}_{cid}{suffix_from_url(url)}"
             if download_image(session, url, dest):
+                # No `set` threaded here: this class mixes three unrelated
+                # games with unverified, inconsistent response shapes (see
+                # module docstring), and `other_tcg` is a catch-all label,
+                # not a per-TCG one — `cid` (per-card id) already carries
+                # what real identity there is, in `source`.
                 append_manifest(
                     filename=dest.name,
                     model="tcg_identifier",

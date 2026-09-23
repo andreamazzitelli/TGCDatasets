@@ -78,6 +78,12 @@ def main() -> None:
         except Exception as exc:
             print(f"  ! request for set {code} failed: {exc}", file=sys.stderr)
             batch = []
+        # Tag each card with the set code from this per-set fetch (the cards
+        # get flattened into one list below, so this is the only place the
+        # association is still available).
+        for c in batch:
+            if isinstance(c, dict):
+                c["_set_code"] = code
         cards.extend(batch)
         sleep_polite(0.1)
 
@@ -115,6 +121,7 @@ def main() -> None:
                 source=f"lorcast.com:{card_id}",
                 license_note="Lorcast API — verify lorcast.com/docs/api terms before redistribution",
                 notes=str(name),
+                set=str(card.get("_set_code", "")) if isinstance(card, dict) else "",
             )
             saved += 1
             if saved % 25 == 0:

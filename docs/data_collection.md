@@ -142,11 +142,15 @@ of variety the model needs to generalize to a phone camera later.
 `scripts/scaffold_dataset.sh` creates `data/manifest.csv` with this header:
 
 ```
-filename,model,split,label,tcg,source,license_note,date_added,notes
+filename,model,split,label,tcg,set,source,license_note,date_added,notes
 ```
 
 (`split` is `train` or `test`, matching which folder the file lives in;
-`scripts/split_test_set.py` maintains it.)
+`scripts/split_test_set.py` maintains it. `set` is the set/card identifier a
+`download_*.py` script had in hand at request time, where one was genuinely
+available — blank otherwise, e.g. eBay listings or self-photographed images;
+see `docs/tcg_detection_pipeline.md` §2 and `scripts/build_detection_split.py`,
+which assigns train/index/eval by *set*, not by image.)
 
 Log every non-self-photographed image here (one row per file) so you can
 answer "where did this come from and am I allowed to use it" later, and so

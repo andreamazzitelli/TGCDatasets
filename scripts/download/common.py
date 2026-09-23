@@ -17,7 +17,18 @@ import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "data" / "manifest.csv"
-MANIFEST_HEADER = ["filename", "model", "split", "label", "tcg", "source", "license_note", "date_added", "notes"]
+# `set` sits right after `tcg` (the set/card identifier is naturally "which
+# tcg, which set" before you get to the free-text `source` string). Added
+# as an additive column — see docs/tcg_detection_pipeline.md §2. Existing
+# manifest rows predating this column were migrated once (blank `set`);
+# `append_manifest` below always writes a value (possibly "") for it now.
+# `detection_split` is appended last: scripts/build_detection_split.py owns
+# assigning it for existing rows (by set, via a full-file rewrite), but a
+# writer that already knows the right bucket for a new row (e.g.
+# scripts/augment.py, which must keep an augmented copy in the same bucket
+# as its source image) can pass it through append_manifest directly instead
+# of leaving it blank for a later build_detection_split.py run to guess at.
+MANIFEST_HEADER = ["filename", "model", "split", "label", "tcg", "set", "source", "license_note", "date_added", "notes", "detection_split"]
 
 DEFAULT_HEADERS = {"User-Agent": "TGCDatasets-collector/1.0 (personal Create ML dataset build)"}
 
@@ -39,10 +50,10 @@ def ensure_manifest() -> None:
             csv.writer(f, lineterminator="\n").writerow(MANIFEST_HEADER)
 
 
-def append_manifest(*, filename: str, model: str, label: str, tcg: str, source: str, license_note: str, notes: str = "", split: str = "train") -> None:
+def append_manifest(*, filename: str, model: str, label: str, tcg: str, source: str, license_note: str, notes: str = "", split: str = "train", set: str = "", detection_split: str = "") -> None:
     ensure_manifest()
     with MANIFEST_PATH.open("a", newline="") as f:
-        csv.writer(f, lineterminator="\n").writerow([filename, model, split, label, tcg, source, license_note, date.today().isoformat(), notes])
+        csv.writer(f, lineterminator="\n").writerow([filename, model, split, label, tcg, set, source, license_note, date.today().isoformat(), notes, detection_split])
 
 
 def suffix_from_url(url: str, default: str = ".jpg") -> str:
@@ -68,6 +79,18 @@ def download_image(session: requests.Session, url: str, dest: Path, *, timeout: 
 
 def sleep_polite(seconds: float) -> None:
     time.sleep(seconds)
+
+
+def split_id_prefix(identifier: str, sep: str = "-") -> str:
+    """Return the segment of `identifier` before the first `sep`, or "" if
+    `sep` isn't present. Several sources format their per-card id as
+    "<set>-<number>" (dbs, digimon, one_piece) or "<set>_<number>" (swu), so
+    the set code is recoverable by splitting once from the left. Shared by
+    those download scripts (called on the raw id at request time) and by
+    scripts/backfill_manifest_sets.py (called on the id portion of the
+    stored `source` column for pre-existing manifest rows, since the same
+    ids end up there — see docs/tcg_detection_pipeline.md §2)."""
+    return identifier.split(sep, 1)[0] if sep in identifier else ""
 
 
 def first_present(d: dict, *keys: str):

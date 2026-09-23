@@ -61,6 +61,10 @@ def main() -> None:
     for card in cards:
         if saved >= args.limit:
             break
+        # Only set `set_code` when the image came from a specific printing
+        # (the `printings` loop below) — the top-level `card.image` fallback
+        # is generic card art with no set attached, so leave it "" there.
+        set_code = ""
         url = first_present(card, "image", "image_url")
         if not url:
             printings = card.get("printings")
@@ -68,6 +72,7 @@ def main() -> None:
                 for p in printings:
                     url = first_present(p, "image", "image_url")
                     if url:
+                        set_code = str(first_present(p, "set_id", "set", "printing_id") or "")
                         break
         if not url:
             warn_once_unknown_shape("flesh-and-blood-cards entry", card)
@@ -84,6 +89,7 @@ def main() -> None:
                 source=f"the-fab-cube/flesh-and-blood-cards:{card_id}",
                 license_note="Open-source community dataset — check repo LICENSE before redistribution",
                 notes=str(name),
+                set=set_code,
             )
             saved += 1
             if saved % 25 == 0:
